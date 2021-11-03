@@ -90,6 +90,7 @@ class Parallel(PureLoggingMixin):
         self._init_logger(self.meta_log_name)
         self._warn_num_jobs = warn_num_jobs
 
+    # Interfaces
     def __call__(self, f: Callable, *args_list: Any) -> "Parallel":
         # if f returns a dict with 'terminate' key, Parallel can be terminated at
         # early stage by setting 'terminate' key to True
@@ -267,6 +268,7 @@ class Parallel(PureLoggingMixin):
 
         return self(_grouped_f, list(range(num_jobs)), *grouped_args_list)
 
+    # Properties
     @property
     def meta(self) -> Dict[str, Any]:
         return self._rs["__meta__"]
@@ -287,6 +289,7 @@ class Parallel(PureLoggingMixin):
     def ordered_results(self) -> List[Any]:
         return [None if key is None else self._rs[key] for key in self._task_names]
 
+    # Utility methods
     def __sleep(self, skip_check_finished: bool) -> None:
         time.sleep(self._sleep + random.random())
         self._refresh(skip_check_finished=skip_check_finished)
