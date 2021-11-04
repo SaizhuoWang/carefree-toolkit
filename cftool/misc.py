@@ -1,35 +1,32 @@
-import io
-import os
-import sys
-import dill
-import json
-import math
-import time
+import datetime
 import errno
+import hashlib
+import inspect
+import io
+import json
+import logging
+import math
+import operator
+import os
 import random
 import shutil
-import inspect
-import logging
-import hashlib
-import zipfile
-import datetime
-import operator
+import sys
 import threading
+import time
 import unicodedata
-
-import numpy as np
-import matplotlib.pyplot as plt
-
-from typing import *
+import zipfile
 from abc import abstractmethod
-from PIL import Image
-from functools import reduce
-from functools import partial
-from itertools import product
 from collections import Counter
+from functools import partial
+from functools import reduce
+from itertools import product
+from typing import *
 
+import dill
+import matplotlib.pyplot as plt
+import numpy as np
+from PIL import Image
 from numpy.lib.stride_tricks import as_strided
-
 
 dill._dill._reverse_typemap["ClassType"] = type
 
@@ -199,9 +196,9 @@ def get_one_hot(feature: Union[list, np.ndarray], dim: int) -> np.ndarray:
 
 
 def show_or_save(
-    export_path: str,
-    fig: Optional[plt.figure] = None,
-    **kwargs: Any,
+        export_path: str,
+        fig: Optional[plt.figure] = None,
+        **kwargs: Any,
 ) -> None:
     """
     Utility function to deal with figure.
@@ -387,11 +384,11 @@ def allclose(*arrays: np.ndarray, **kwargs) -> bool:
 
 
 def register_core(
-    name: str,
-    global_dict: Dict[str, type],
-    *,
-    before_register: Optional[Callable] = None,
-    after_register: Optional[Callable] = None,
+        name: str,
+        global_dict: Dict[str, type],
+        *,
+        before_register: Optional[Callable] = None,
+        after_register: Optional[Callable] = None,
 ):
     def _register(cls):
         if before_register is not None:
@@ -462,11 +459,11 @@ def check(constraints: Dict[str, Union[str, List[str]]], *, raise_error: bool = 
 
 class StrideArray:
     def __init__(
-        self,
-        arr: np.ndarray,
-        *,
-        copy: bool = False,
-        writable: Optional[bool] = None,
+            self,
+            arr: np.ndarray,
+            *,
+            copy: bool = False,
+            writable: Optional[bool] = None,
     ):
         self.arr = arr
         self.shape = arr.shape
@@ -484,9 +481,9 @@ class StrideArray:
         return self.arr.__repr__()
 
     def _construct(
-        self,
-        shapes: Tuple[int, ...],
-        strides: Tuple[int, ...],
+            self,
+            shapes: Tuple[int, ...],
+            strides: Tuple[int, ...],
     ) -> np.ndarray:
         arr = self.arr.copy() if self.copy else self.arr
         return as_strided(
@@ -511,7 +508,7 @@ class StrideArray:
         # shapes
         rolled_shapes = tuple(self.shape[:axis]) + (rolled_dim, window)
         if axis < self.num_dim - 1:
-            rolled_shapes = rolled_shapes + self.shape[axis + 1 :]
+            rolled_shapes = rolled_shapes + self.shape[axis + 1:]
         # strides
         previous_strides = tuple(self.strides[:axis])
         target_stride = (self.strides[axis] * stride,)
@@ -521,13 +518,13 @@ class StrideArray:
         return self._construct(rolled_shapes, rolled_strides)
 
     def patch(
-        self,
-        patch_w: int,
-        patch_h: Optional[int] = None,
-        *,
-        h_stride: int = 1,
-        w_stride: int = 1,
-        h_axis: int = -2,
+            self,
+            patch_w: int,
+            patch_h: Optional[int] = None,
+            *,
+            h_stride: int = 1,
+            w_stride: int = 1,
+            h_axis: int = -2,
     ) -> np.ndarray:
         if self.num_dim < 2:
             raise ValueError("`patch` requires input with at least 2d")
@@ -550,13 +547,13 @@ class StrideArray:
         patched_dim = patched_dim + (patch_h, patch_w)
         patched_shapes = tuple(self.shape[:h_axis]) + patched_dim
         if w_axis < self.num_dim - 1:
-            patched_shapes = patched_shapes + self.shape[w_axis + 1 :]
+            patched_shapes = patched_shapes + self.shape[w_axis + 1:]
         # strides
         arr_h_stride, arr_w_stride = self.strides[h_axis], self.strides[w_axis]
         previous_strides = tuple(self.strides[:h_axis])
         target_stride = (arr_h_stride * h_stride, arr_w_stride * w_stride)
         target_stride = target_stride + (arr_h_stride, arr_w_stride)
-        latter_strides = tuple(self.strides[w_axis + 1 :])
+        latter_strides = tuple(self.strides[w_axis + 1:])
         patched_strides = previous_strides + target_stride + latter_strides
         # construct
         return self._construct(patched_shapes, patched_strides)
@@ -570,11 +567,11 @@ class StrideArray:
         # shapes
         repeated_shapes = tuple(self.shape[:axis]) + (k,)
         if axis < self.num_dim - 1:
-            repeated_shapes = repeated_shapes + self.shape[axis + 1 :]
+            repeated_shapes = repeated_shapes + self.shape[axis + 1:]
         # strides
         previous_strides = tuple(self.strides[:axis])
         target_stride = (0,)
-        latter_strides = tuple(self.strides[axis + 1 :])
+        latter_strides = tuple(self.strides[axis + 1:])
         repeated_strides = previous_strides + target_stride + latter_strides
         # construct
         return self._construct(repeated_shapes, repeated_strides)
@@ -735,30 +732,36 @@ class LoggingMixin:
     _triggered_ = False
     _initialized_ = False
     _logging_path_ = None
-    _logger_ = _verbose_level_ = None
+    logger = _verbose_level_ = None
     _date_format_string_ = "%Y-%m-%d %H:%M:%S.%f"
-    _formatter_ = _Formatter(
-        "[ {asctime:s} ] [ {levelname:^8s} ] {func_prefix:s} {message:s}",
+    formatter = _Formatter(
+        "[{asctime:s}][{levelname}]{func_prefix:s}{message:s}",
         _date_format_string_,
         style="{",
     )
     _timing_dict_, _time_cache_dict_ = {}, {}
 
-    info_prefix = ">  [ info ] "
-    warning_prefix = "> [warning] "
-    error_prefix = "> [ error ] "
+    info_prefix = "[INFO]"
+    warning_prefix = "[WARNING]"
+    error_prefix = "[ERROR]"
+
+    @property
+    def class_logging_path(self):
+        log_dir = os.path.join(self.logging_root, timestamp())
+        os.makedirs(log_dir, exist_ok=True)
+        return os.path.join(log_dir, f'{type(self).__name__}.log')
 
     @property
     def logging_path(self):
         log_dir = os.path.join(self.logging_root, timestamp())
         os.makedirs(log_dir, exist_ok=True)
-        return os.path.join(log_dir, f'{self.__class__.__name__}.log')
+        return os.path.join(log_dir, f'full_stream.log')
 
     @property
     def console_handler(self):
-        if self._logger_ is None:
+        if self.logger is None:
             return
-        for handler in self._logger_.handlers:
+        for handler in self.logger.handlers:
             if isinstance(handler, logging.StreamHandler):
                 return handler
 
@@ -772,7 +775,7 @@ class LoggingMixin:
         file_name = truncate_string_to_length(os.path.basename(frame_info.filename), 16)
         func_name = truncate_string_to_length(frame_info.function, 24)
         func_prefix = (
-            f"[ {func_name:^24s} ] [ {file_name:>16s}:{frame_info.lineno:<4d} ]"
+            f"[{func_name:^20}][{file_name:>15}:{frame_info.lineno:<4}]:\t"
         )
         return func_prefix
 
@@ -786,85 +789,74 @@ class LoggingMixin:
     def generate_logging_path(folder: str) -> str:
         return os.path.join(folder, f"{timestamp()}.log")
 
-    def _init_logging(self, verbose_level: Optional[int] = 2,
-                      trigger: bool = True,
-                      logging_root: str = os.path.join(os.getcwd(), 'logs')):
-        wants_trigger = trigger and not LoggingMixin._triggered_
-        if LoggingMixin._initialized_ and not wants_trigger:
-            return self
-        LoggingMixin._initialized_ = True
-        logger_name = getattr(self, "_logger_name_", self.__class__.__name__)
-        logger = LoggingMixin._logger_ = logging.getLogger(logger_name)
-        LoggingMixin._verbose_level_ = verbose_level
-        if not trigger:
-            return self
-        LoggingMixin._triggered_ = True
+    def init_logging(self,
+                     verbose_level: Optional[int] = 2,
+                     log_level: Optional[int] = logging.INFO,
+                     logging_root: str = os.path.join(os.getcwd(), 'logs')):
+        self._initialized_ = True
+        logger_name = getattr(self, "_logger_name_", type(self).__name__)
+        self.logger = logging.getLogger(logger_name)
+        self.log_level = log_level
+        self._verbose_level_ = verbose_level
 
         self.logging_root = logging_root
         os.makedirs(os.path.dirname(self.logging_path), exist_ok=True)
 
-        file_handler = logging.FileHandler(self.logging_path, encoding="utf-8")
-        file_handler.setFormatter(self._formatter_)
-        file_handler.setLevel(logging.DEBUG)
+        class_file_handler = logging.FileHandler(self.class_logging_path, encoding="utf-8")
+        class_file_handler.setFormatter(self.formatter)
+
+        file_handler = logging.FileHandler(self.logging_path, encoding='utf-8')
+        file_handler.setFormatter(self.formatter)
 
         console = logging.StreamHandler()
-        console.setLevel(logging.INFO)
-        console.setFormatter(self._formatter_)
+        console.setFormatter(self.formatter)
 
-        logger.setLevel(logging.DEBUG)
-        self._release_handlers(logger)
-        logger.addHandler(console)
-        logger.addHandler(file_handler)
-
-        self.log_block_msg(sys.version, title="system version", verbose_level=None)
+        self._release_handlers(self.logger)
+        self.logger.setLevel(log_level)
+        self.logger.addHandler(console)
+        self.logger.addHandler(class_file_handler)
+        self.logger.addHandler(file_handler)
         return self
 
     def log_msg(
-        self,
-        body: str,
-        prefix: str = "",
-        verbose_level: Optional[int] = 1,
-        msg_level: int = logging.INFO,
-        frame=None,
-    ):
-        preset_verbose_level = getattr(self, "_verbose_level", None)
-        if preset_verbose_level is not None:
-            self._verbose_level_ = preset_verbose_level
-        elif self._verbose_level_ is None:
-            self._verbose_level_ = 0
-        console_handler = self.console_handler
-        if verbose_level is None or self._verbose_level_ < verbose_level:
-            do_print, console_level = False, msg_level + 10
-        else:
-            do_print, console_level = not LoggingMixin._triggered_, msg_level
-        if console_handler is not None:
-            console_handler.setLevel(console_level)
-        if do_print:
-            print(prefix + body)
-        elif LoggingMixin._triggered_:
-            func_prefix = self._get_func_prefix(frame)
-            self._logger_.log(
-                msg_level,
-                body,
-                extra={"func_prefix": func_prefix, "custom_prefix": prefix},
-            )
-        if console_handler is not None:
-            console_handler.setLevel(logging.INFO)
+            self,
+            body: str,
+            prefix: str = "",
+            level: int = logging.INFO,
+            frame=None,
+    ) -> None:
+        """
+        Log a message to the logging system: console, full log and class specific log
+
+        Parameters
+        ----------
+        body: str
+            The message body.
+        prefix: str, default=""
+            The message prefix.
+        level: int, default=logging.INFO
+            Message urgency level
+        frame
+            Stack frame
+        """
+        func_prefix = self._get_func_prefix(frame)
+        self.logger.log(msg=body,
+                        level=level,
+                        extra={"func_prefix": func_prefix, "custom_prefix": prefix})
 
     def log_block_msg(
-        self,
-        body: str,
-        prefix: str = "",
-        title: str = "",
-        verbose_level: Optional[int] = 1,
-        msg_level: int = logging.INFO,
-        frame=None,
+            self,
+            body: str,
+            prefix: str = "",
+            title: str = "",
+            msg_level: int = logging.INFO,
+            frame=None,
     ):
         frame = self._get_func_prefix(frame, False)
-        self.log_msg(f"{title}\n{body}\n", prefix, verbose_level, msg_level, frame)
+        self.log_msg(f"{title}\n{body}\n", prefix, msg_level, frame)
 
     def exception(self, body, frame=None):
-        self._logger_.exception(
+        self.logger.exception(
             body,
             extra={
                 "custom_prefix": self.error_prefix,
@@ -887,8 +879,8 @@ class LoggingMixin:
     def merge_logs_by_time(*log_files, tgt_file):
         tgt_folder = os.path.dirname(tgt_file)
         date_str_len = (
-            len(datetime.datetime.today().strftime(LoggingMixin._date_format_string_))
-            + 4
+                len(datetime.datetime.today().strftime(LoggingMixin._date_format_string_))
+                + 4
         )
         with lock_manager(tgt_folder, [tgt_file], clear_stuffs_after_exc=False):
             msg_dict, msg_block, last_searched = {}, [], None
@@ -921,9 +913,9 @@ class LoggingMixin:
         cls._triggered_ = False
         cls._initialized_ = False
         cls._logging_path_ = None
-        if cls._logger_ is not None:
-            cls._release_handlers(cls._logger_)
-        cls._logger_ = cls._verbose_level_ = None
+        if cls.logger is not None:
+            cls._release_handlers(cls.logger)
+        cls.logger = cls._verbose_level_ = None
         cls._timing_dict_, cls._time_cache_dict_ = {}, {}
 
     @classmethod
@@ -962,7 +954,6 @@ class LoggingMixin:
         self.log_block_msg(
             "\n".join(timing_str_list),
             title="timing",
-            verbose_level=None,
             msg_level=logging.DEBUG,
         )
         return self
@@ -992,7 +983,7 @@ class PureLoggingMixin:
 
     _name = _meta_name = None
 
-    _formatter_ = LoggingMixin._formatter_
+    _formatter_ = LoggingMixin.formatter
     _loggers_: Dict[str, logging.Logger] = {}
     _logger_paths_: Dict[str, str] = {}
     _timing_dict_ = {}
@@ -1067,9 +1058,9 @@ class PureLoggingMixin:
     def log_msg(self, name, msg, msg_level=logging.INFO, frame=None):
         logger, logging_folder, logging_path = self._get_logger_info(name)
         with lock_manager(
-            logging_folder,
-            [logging_path],
-            clear_stuffs_after_exc=False,
+                logging_folder,
+                [logging_path],
+                clear_stuffs_after_exc=False,
         ):
             logger.log(
                 msg_level,
@@ -1088,9 +1079,9 @@ class PureLoggingMixin:
     def exception(self, name, msg, frame=None):
         logger, logging_folder, logging_path = self._get_logger_info(name)
         with lock_manager(
-            logging_folder,
-            [logging_path],
-            clear_stuffs_after_exc=False,
+                logging_folder,
+                [logging_path],
+                clear_stuffs_after_exc=False,
         ):
             logger.exception(
                 msg,
@@ -1174,10 +1165,10 @@ class SavingMixin(LoggingMixin):
         base_folder = os.path.dirname(os.path.abspath(folder))
         with lock_manager(base_folder, [folder]):
             with Saving.compress_loader(
-                folder,
-                compress,
-                remove_extracted=True,
-                logging_mixin=self,
+                    folder,
+                    compress,
+                    remove_extracted=True,
+                    logging_mixin=self,
             ):
                 with self._data_tuple_context(is_saving=False):
                     Saving.load_instance(self, folder, log_method=self.log_msg)
@@ -1382,9 +1373,9 @@ class Saving(LoggingMixin):
             _check_array(attr_key, attr_value)
         cache_excludes.add("_verbose_level_")
         with lock_manager(
-            folder,
-            [os.path.join(folder, main_file)],
-            name=instance_str,
+                folder,
+                [os.path.join(folder, main_file)],
+                name=instance_str,
         ):
             with open(save_path, "wb") as f:
                 d = {k: v for k, v in instance_dict.items() if k not in cache_excludes}
@@ -1395,12 +1386,12 @@ class Saving(LoggingMixin):
                 map(lambda f_: os.path.join(array_folder, f_), sorted_array_files)
             )
             with lock_manager(
-                array_folder,
-                sorted_array_files_full_path,
-                name=f"{instance_str} (arrays)",
+                    array_folder,
+                    sorted_array_files_full_path,
+                    name=f"{instance_str} (arrays)",
             ):
                 for array_file, array_file_full_path in zip(
-                    sorted_array_files, sorted_array_files_full_path
+                        sorted_array_files, sorted_array_files_full_path
                 ):
                     array_value = array_attribute_dict[array_file]
                     if array_file.endswith(".npy"):
@@ -1453,7 +1444,7 @@ class Saving(LoggingMixin):
             instance.log_msg(
                 f"'{folder}' already exists, it will be cleared up to save our model",
                 instance.warning_prefix,
-                msg_level=logging.WARNING,
+                level=logging.WARNING,
             )
             shutil.rmtree(folder)
         os.makedirs(folder)
@@ -1466,11 +1457,11 @@ class Saving(LoggingMixin):
 
     @staticmethod
     def compress_loader(
-        folder: str,
-        is_compress: bool,
-        *,
-        remove_extracted: bool = True,
-        logging_mixin: Optional[LoggingMixin] = None,
+            folder: str,
+            is_compress: bool,
+            *,
+            remove_extracted: bool = True,
+            logging_mixin: Optional[LoggingMixin] = None,
     ):
         class _manager(context_error_handler):
             def __enter__(self):
@@ -1486,7 +1477,7 @@ class Saving(LoggingMixin):
                             logging_mixin.log_msg(
                                 msg,
                                 logging_mixin.warning_prefix,
-                                msg_level=logging.WARNING,
+                                level=logging.WARNING,
                             )
                         shutil.rmtree(folder)
                     with zipfile.ZipFile(f"{folder}.zip", "r") as zip_ref:
@@ -1562,11 +1553,11 @@ def _offset_fn(value) -> int:
 
 class Nested:
     def __init__(
-        self,
-        nested: union_nested_type,
-        *,
-        offset_fn: Callable[[Any], int] = _offset_fn,
-        delim: str = "^_^",
+            self,
+            nested: union_nested_type,
+            *,
+            offset_fn: Callable[[Any], int] = _offset_fn,
+            delim: str = "^_^",
     ):
         self.nested = nested
         self.offset_fn, self.delim = offset_fn, delim
@@ -1658,8 +1649,8 @@ class Nested:
         cursor = 0
         flattened = {}
         for key, offset in zip(
-            self.sorted_flattened_keys,
-            self.sorted_flattened_offsets,
+                self.sorted_flattened_keys,
+                self.sorted_flattened_offsets,
         ):
             end = cursor + offset
             if offset == 1:
@@ -1777,7 +1768,7 @@ class timeit(context_error_handler):
         prefix = LoggingMixin.info_prefix
         print(
             f"{prefix}timing for {self._msg:^16s} : "
-            f"{time.time() - self._t:{self._p}.{self._p-2}f}"
+            f"{time.time() - self._t:{self._p}.{self._p - 2}f}"
         )
 
 
@@ -1831,14 +1822,14 @@ class lock_manager(context_error_handler, LoggingMixin):
     __lock__ = "__lock__"
 
     def __init__(
-        self,
-        workplace,
-        stuffs,
-        verbose_level=None,
-        set_lock=True,
-        clear_stuffs_after_exc=True,
-        name=None,
-        wait=1000,
+            self,
+            workplace,
+            stuffs,
+            verbose_level=None,
+            set_lock=True,
+            clear_stuffs_after_exc=True,
+            name=None,
+            wait=1000,
     ):
         self._workplace = workplace
         self._verbose_level = verbose_level
@@ -2019,11 +2010,11 @@ class batch_manager(context_error_handler):
     """
 
     def __init__(
-        self,
-        *inputs,
-        n_elem: int = 1e6,
-        batch_size: Optional[int] = None,
-        max_batch_size: int = 1024,
+            self,
+            *inputs,
+            n_elem: int = 1e6,
+            batch_size: Optional[int] = None,
+            max_batch_size: int = 1024,
     ):
         if not inputs:
             raise ValueError("inputs should be provided in general_batch_manager")
@@ -2054,7 +2045,7 @@ class batch_manager(context_error_handler):
             raise StopIteration
         batched_data = tuple(
             map(
-                lambda arr: arr[self._start : self._end],
+                lambda arr: arr[self._start: self._end],
                 self._inputs,
             )
         )
@@ -2084,7 +2075,7 @@ class timing_context(context_error_handler):
     >>> instance = type(
     >>>    "test", (LoggingMixin,),
     >>>    {"config": {}, "_verbose_level": 2}
-    >>> )()._init_logging(2, True)
+    >>> )().init_logging(2, True)
     >>> for _ in range(50):
     >>>     with timing_context(instance, "random sleep"):
     >>>         time.sleep(random.random() * 0.1)
@@ -2135,8 +2126,8 @@ class data_tuple_saving_controller(context_error_handler):
         if self.trigger and self._is_saving:
             self.__tmp_attr_list = []
             for attr, data_tuple in zip(
-                self._data_tuple_attributes,
-                self._data_tuples,
+                    self._data_tuple_attributes,
+                    self._data_tuples,
             ):
                 local_attr_list = self._get_attr(attr, data_tuple)
                 for local_attr, data in zip(local_attr_list, data_tuple):
@@ -2146,16 +2137,16 @@ class data_tuple_saving_controller(context_error_handler):
     @property
     def trigger(self):
         return (
-            self._data_tuple_base is not None
-            and self._data_tuple_attributes is not None
+                self._data_tuple_base is not None
+                and self._data_tuple_attributes is not None
         )
 
     def _normal_exit(self, exc_type, exc_val, exc_tb):
         if self.trigger:
             if self._is_saving:
                 for attr, data_tuple in zip(
-                    self._data_tuple_attributes,
-                    self._data_tuples,
+                        self._data_tuple_attributes,
+                        self._data_tuples,
                 ):
                     setattr(self._instance, attr, self._data_tuple_base(*data_tuple))
                 for attr in self.__tmp_attr_list:
@@ -2177,9 +2168,9 @@ class data_tuple_saving_controller(context_error_handler):
                     )
 
     def _get_attr(
-        self,
-        attr: Optional[str] = None,
-        data_tuple: Optional[NamedTuple] = None,
+            self,
+            attr: Optional[str] = None,
+            data_tuple: Optional[NamedTuple] = None,
     ) -> Optional[Union[List[str], Dict[str, Dict[int, str]]]]:
         prefix = self.__prefix__
         if self._is_saving:
@@ -2193,7 +2184,7 @@ class data_tuple_saving_controller(context_error_handler):
                 self._instance.__dict__.keys(),
             )
         )
-        attr_pool_split = [attr_[len(prefix) :].split("_") for attr_ in attr_pool]
+        attr_pool_split = [attr_[len(prefix):].split("_") for attr_ in attr_pool]
         attr_pool_map = {}
         for attr, attr_split in zip(attr_pool, attr_pool_split):
             core_attr, idx = "_".join(attr_split[:-1]), int(attr_split[-1])

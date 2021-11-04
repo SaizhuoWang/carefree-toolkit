@@ -279,7 +279,7 @@ class ShapeObject(LoggingMixin):
     ) -> Dict[str, float]:
 
         if kwargs.get("trigger_logging", False):
-            self._init_logging()
+            self.init_logging()
 
         def _raise():
             raise NotImplementedError(

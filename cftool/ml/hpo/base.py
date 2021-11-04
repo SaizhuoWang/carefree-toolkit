@@ -138,7 +138,7 @@ class HPOBase(LoggingMixin, metaclass=ABCMeta):
                 f"`n` is larger than total choices we've got ({num_params}), "
                 f"therefore only {num_params} searches will be run",
                 self.warning_prefix,
-                msg_level=logging.WARNING,
+                level=logging.WARNING,
             )
             num_search = num_params
         num_jobs = min(num_search, num_jobs)
