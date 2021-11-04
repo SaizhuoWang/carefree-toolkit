@@ -746,16 +746,18 @@ class LoggingMixin:
     error_prefix = "[ERROR]"
 
     @property
+    def log_dir(self) -> str:
+        if not hasattr(LoggingMixin, 'process_log_dir'):
+            LoggingMixin.process_log_dir = os.path.join(self.logging_root, timestamp())
+        return LoggingMixin.process_log_dir
+
+    @property
     def class_logging_path(self):
-        log_dir = os.path.join(self.logging_root, timestamp())
-        os.makedirs(log_dir, exist_ok=True)
-        return os.path.join(log_dir, f'{type(self).__name__}.log')
+        return os.path.join(self.log_dir, f'{type(self).__name__}.log')
 
     @property
     def logging_path(self):
-        log_dir = os.path.join(self.logging_root, timestamp())
-        os.makedirs(log_dir, exist_ok=True)
-        return os.path.join(log_dir, f'full_stream.log')
+        return os.path.join(self.log_dir, f'full_stream.log')
 
     @property
     def console_handler(self):
