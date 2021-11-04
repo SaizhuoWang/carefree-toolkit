@@ -750,11 +750,9 @@ class LoggingMixin:
 
     @property
     def logging_path(self):
-        if self._logging_path_ is None:
-            folder = os.path.join(os.getcwd(), "_logging", type(self).__name__)
-            os.makedirs(folder, exist_ok=True)
-            self._logging_path_ = self.generate_logging_path(folder)
-        return self._logging_path_
+        log_dir = os.path.join(self.logging_root, timestamp())
+        os.makedirs(log_dir, exist_ok=True)
+        return os.path.join(log_dir, f'{self.__class__.__name__}.log')
 
     @property
     def console_handler(self):
@@ -788,32 +786,36 @@ class LoggingMixin:
     def generate_logging_path(folder: str) -> str:
         return os.path.join(folder, f"{timestamp()}.log")
 
-    def _init_logging(self, verbose_level: Optional[int] = 2, trigger: bool = True):
+    def _init_logging(self, verbose_level: Optional[int] = 2,
+                      trigger: bool = True,
+                      logging_root: str = os.path.join(os.getcwd(), 'logs')):
         wants_trigger = trigger and not LoggingMixin._triggered_
         if LoggingMixin._initialized_ and not wants_trigger:
             return self
         LoggingMixin._initialized_ = True
-        logger_name = getattr(self, "_logger_name_", "root")
+        logger_name = getattr(self, "_logger_name_", self.__class__.__name__)
         logger = LoggingMixin._logger_ = logging.getLogger(logger_name)
         LoggingMixin._verbose_level_ = verbose_level
         if not trigger:
             return self
         LoggingMixin._triggered_ = True
-        config = getattr(self, "config", {})
-        self._logging_path_ = config.get("_logging_path_")
-        if self._logging_path_ is None:
-            self._logging_path_ = config["_logging_path_"] = self.logging_path
+
+        self.logging_root = logging_root
         os.makedirs(os.path.dirname(self.logging_path), exist_ok=True)
+
         file_handler = logging.FileHandler(self.logging_path, encoding="utf-8")
         file_handler.setFormatter(self._formatter_)
         file_handler.setLevel(logging.DEBUG)
+
         console = logging.StreamHandler()
         console.setLevel(logging.INFO)
-        console.setFormatter(_Formatter("{custom_prefix:s}{message:s}", style="{"))
+        console.setFormatter(self._formatter_)
+
         logger.setLevel(logging.DEBUG)
         self._release_handlers(logger)
         logger.addHandler(console)
         logger.addHandler(file_handler)
+
         self.log_block_msg(sys.version, title="system version", verbose_level=None)
         return self
 
