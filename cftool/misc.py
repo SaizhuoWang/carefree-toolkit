@@ -749,9 +749,8 @@ class LoggingMixin:
     @property
     def log_dir(self) -> str:
         if not hasattr(LoggingMixin, 'process_log_dir'):
-            specified_logdir = os.environ.get('SPECIFIED_LOGDIR')
-            if specified_logdir is not None:
-                LoggingMixin.process_log_dir = specified_logdir
+            if 'SPECIFIED_LOGDIR' in os.environ.keys():
+                LoggingMixin.process_log_dir = os.environ.get('SPECIFIED_LOGDIR')
             else:
                 LoggingMixin.process_log_dir = os.path.join(self.logging_root, timestamp())
         return LoggingMixin.process_log_dir
