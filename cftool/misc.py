@@ -1843,42 +1843,18 @@ class lock_manager(context_error_handler, LoggingMixin):
 
     def __enter__(self):
         frame = inspect.currentframe().f_back
-        self.log_msg(
-            f"waiting for lock at {self.lock_file}",
-            self.info_prefix,
-            5,
-            logging.DEBUG,
-            frame,
-        )
+        self.log_msg(body=f"Waiting for lock at {self.lock_file}", level=logging.DEBUG, frame=frame)
         enter_time = file_modify = None
         while True:
             try:
                 fd = os.open(self.lock_file, os.O_CREAT | os.O_EXCL | os.O_RDWR)
-                self.log_msg(
-                    "lock acquired",
-                    self.info_prefix,
-                    5,
-                    logging.DEBUG,
-                    frame,
-                )
+                self.log_msg(body="lock acquired", level=logging.DEBUG, frame=frame)
                 if not self._set_lock:
-                    self.log_msg(
-                        "releasing lock since set_lock=False",
-                        self.info_prefix,
-                        5,
-                        logging.DEBUG,
-                        frame,
-                    )
+                    self.log_msg(body="releasing lock since set_lock=False", level=logging.DEBUG, frame=frame)
                     os.unlink(self.lock_file)
                     self.__refresher = None
                 else:
-                    self.log_msg(
-                        "writing info to lock file",
-                        self.info_prefix,
-                        5,
-                        logging.DEBUG,
-                        frame,
-                    )
+                    self.log_msg(body="writing info to lock file", level=logging.DEBUG, frame=frame)
                     with os.fdopen(fd, "a") as f:
                         f.write(
                             f"name      : {self._name}\n"
@@ -1915,13 +1891,8 @@ class lock_manager(context_error_handler, LoggingMixin):
                     raise
                 except FileNotFoundError:
                     pass
-        self.log_block_msg(
-            self.cache_stuffs_str,
-            title="start processing following stuffs:",
-            verbose_level=5,
-            msg_level=logging.DEBUG,
-            frame=frame,
-        )
+        self.log_block_msg(body=self.cache_stuffs_str, title="start processing following stuffs:",
+                           msg_level=logging.DEBUG, frame=frame)
         self._is_locked = True
         return self
 
@@ -1937,29 +1908,17 @@ class lock_manager(context_error_handler, LoggingMixin):
             os.unlink(self.lock_file)
         if frame is None:
             frame = inspect.currentframe().f_back.f_back.f_back
-        self.log_msg("lock released", self.info_prefix, 5, logging.DEBUG, frame)
+        self.log_msg("lock released", level=logging.DEBUG, frame=frame)
 
     def _exception_exit(self, exc_type, exc_val, exc_tb):
         frame = inspect.currentframe().f_back.f_back.f_back
         if self._clear_stuffs:
             for stuff in self._stuffs:
                 if os.path.isfile(stuff):
-                    self.log_msg(
-                        f"clearing cached file: {stuff}",
-                        ">> ",
-                        5,
-                        logging.ERROR,
-                        frame,
-                    )
+                    self.log_msg(body=f"clearing cached file: {stuff}", level=logging.ERROR, frame=frame)
                     os.remove(stuff)
                 elif os.path.isdir(stuff):
-                    self.log_msg(
-                        f"clearing cached directory: {stuff}",
-                        ">> ",
-                        5,
-                        logging.ERROR,
-                        frame,
-                    )
+                    self.log_msg(body=f"clearing cached directory: {stuff}", level=logging.ERROR, frame=frame)
                     shutil.rmtree(stuff)
         self._normal_exit(exc_type, exc_val, exc_tb, frame)
 
