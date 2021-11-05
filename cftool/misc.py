@@ -959,7 +959,7 @@ class LoggingMixin:
         self.log_block_msg(
             "\n".join(timing_str_list),
             title="timing",
-            msg_level=logging.DEBUG,
+            msg_level=logging.INFO,
         )
         return self
 
