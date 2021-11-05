@@ -1833,6 +1833,8 @@ class lock_manager(context_error_handler, LoggingMixin):
             name=None,
             wait=1000,
     ):
+        self.init_logging(log_level=getattr(logging, os.environ.get('CFQUANT_LOG_LEVEL', 'INFO'), logging.INFO),
+                          logging_root=os.environ.get('CFQUANT_LOGDIR', os.path.join(os.getcwd(), 'logs')))
         self._workplace = workplace
         self._verbose_level = verbose_level
         self._name, self._wait = name, wait
