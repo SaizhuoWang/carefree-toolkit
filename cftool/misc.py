@@ -1848,18 +1848,18 @@ class lock_manager(context_error_handler, LoggingMixin):
 
     def __enter__(self):
         frame = inspect.currentframe().f_back
-        self.log_msg(body=f"Waiting for lock at {self.lock_file}", level=logging.DEBUG, frame=frame)
+        self.log_msg(body=f"Waiting for lock at {self.lock_file}", level=logging.NOTSET, frame=frame)
         enter_time = file_modify = None
         while True:
             try:
                 fd = os.open(self.lock_file, os.O_CREAT | os.O_EXCL | os.O_RDWR)
-                self.log_msg(body="lock acquired", level=logging.DEBUG, frame=frame)
+                self.log_msg(body="lock acquired", level=logging.NOTSET, frame=frame)
                 if not self._set_lock:
-                    self.log_msg(body="releasing lock since set_lock=False", level=logging.DEBUG, frame=frame)
+                    self.log_msg(body="releasing lock since set_lock=False", level=logging.NOTSET, frame=frame)
                     os.unlink(self.lock_file)
                     self.__refresher = None
                 else:
-                    self.log_msg(body="writing info to lock file", level=logging.DEBUG, frame=frame)
+                    self.log_msg(body="writing info to lock file", level=logging.NOTSET, frame=frame)
                     with os.fdopen(fd, "a") as f:
                         f.write(
                             f"name      : {self._name}\n"
@@ -1897,7 +1897,7 @@ class lock_manager(context_error_handler, LoggingMixin):
                 except FileNotFoundError:
                     pass
         self.log_block_msg(body=self.cache_stuffs_str, title="start processing following stuffs:",
-                           msg_level=logging.DEBUG, frame=frame)
+                           msg_level=logging.NOTSET, frame=frame)
         self._is_locked = True
         return self
 
@@ -1913,7 +1913,7 @@ class lock_manager(context_error_handler, LoggingMixin):
             os.unlink(self.lock_file)
         if frame is None:
             frame = inspect.currentframe().f_back.f_back.f_back
-        self.log_msg("lock released", level=logging.DEBUG, frame=frame)
+        self.log_msg("lock released", level=logging.NOTSET, frame=frame)
 
     def _exception_exit(self, exc_type, exc_val, exc_tb):
         frame = inspect.currentframe().f_back.f_back.f_back
