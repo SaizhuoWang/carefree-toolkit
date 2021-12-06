@@ -1,22 +1,21 @@
+import inspect
+import logging
 import os
-import dill
-import time
+import platform
 import pprint
 import random
 import signal
-import inspect
-import logging
-import platform
-
-from typing import *
-from tqdm import tqdm
-from pathos.pools import ProcessPool
+import time
 from multiprocessing import Process
 from multiprocessing.managers import SyncManager
+from typing import *
 
-from ..misc import *
+import dill
+from pathos.pools import ProcessPool
+from tqdm import tqdm
+
 from ..manage import *
-from ..misc import grouped
+from ..misc import *
 
 LINUX = platform.system() == "Linux"
 dill._dill._reverse_typemap["ClassType"] = type
@@ -59,19 +58,19 @@ class Parallel(PureLoggingMixin):
         pass
 
     def __init__(
-        self,
-        num_jobs: int,
-        *,
-        sleep: float = 1.0,
-        use_tqdm: bool = True,
-        use_cuda: bool = False,
-        name: Optional[str] = None,
-        meta_name: Optional[str] = None,
-        logging_folder: Optional[str] = None,
-        task_names: Optional[List[str]] = None,
-        tqdm_config: Optional[Dict[str, Any]] = None,
-        resource_config: Optional[Dict[str, Any]] = None,
-        warn_num_jobs: bool = True,
+            self,
+            num_jobs: int,
+            *,
+            sleep: float = 1.0,
+            use_tqdm: bool = True,
+            use_cuda: bool = False,
+            name: Optional[str] = None,
+            meta_name: Optional[str] = None,
+            logging_folder: Optional[str] = None,
+            task_names: Optional[List[str]] = None,
+            tqdm_config: Optional[Dict[str, Any]] = None,
+            resource_config: Optional[Dict[str, Any]] = None,
+            warn_num_jobs: bool = True,
     ):
         self._rs = None
         self._use_tqdm, self._use_cuda = use_tqdm, use_cuda
@@ -98,12 +97,14 @@ class Parallel(PureLoggingMixin):
         n_jobs = min(self._num_jobs, n_tasks)
         if self._task_names is None:
             self._task_names = [None] * n_tasks
+
+        # Special handling on non-Linux systems, which is rarely used.
         if not LINUX or n_jobs <= 1:
             if LINUX and self._warn_num_jobs:
                 print(
-                    f"{LoggingMixin.warning_prefix}Detected Linux system but "
-                    f"n_jobs={n_jobs}, functions will be dramatically reduced.\n"
-                    "* It is recommended to set n_jobs to a larger value"
+                    f"{LoggingMixin.warning_prefix}Detected Linux system but n_jobs={n_jobs}, "
+                    f"functions will be dramatically reduced.\n * It is recommended to set n_jobs "
+                    f"to a larger value"
                 )
             results = []
             task_names = list(map(self._get_task_name, range(n_tasks)))
@@ -118,8 +119,10 @@ class Parallel(PureLoggingMixin):
                 results.append(result)
             self._rs = dict(zip(task_names, results))
             return self
+
         self._func, self._args_list = f, args_list
         self._cursor, self._all_task_indices = 0, list(range(n_jobs, n_tasks))
+
         self._log_meta_msg("initializing sync manager")
         self._sync_manager = SyncManager()
         self._sync_manager.start(lambda: signal.signal(signal.SIGINT, signal.SIG_IGN))
@@ -132,10 +135,12 @@ class Parallel(PureLoggingMixin):
         )
         self._overwritten_task_info = {}
         self._pid2task_idx = None
+
         self._log_meta_msg("initializing resource manager")
         self._resource_manager = ResourceManager(
             self._resource_config, self._get_task_name, self._refresh_patience
         )
+
         self._log_meta_msg("registering PC manager")
         pc_manager = PCManager()
         ram_methods = {
@@ -144,6 +149,7 @@ class Parallel(PureLoggingMixin):
             "get_available_dict": lambda: {"total": pc_manager.get_available_ram()},
         }
         self._resource_manager.register("RAM", ram_methods)
+
         gpu_config = self._resource_config.setdefault("gpu_config", {})
         default_cuda_list = None if self._use_cuda else []
         available_cuda_list = gpu_config.setdefault(
@@ -160,26 +166,35 @@ class Parallel(PureLoggingMixin):
                 "get_available_dict": gpu_manager.get_gpu_frees,
             }
             self._resource_manager.register("GPU", gpu_methods)
+
         self._resource_manager.register_logging(self._init_logger, self)
         self._log_meta_msg("initializing with refreshing")
         self._refresh(skip_check_finished=True)
         self._working_processes = None
+
         if not self._use_tqdm:
             self._tqdm_bar = None
         else:
             self._tqdm_bar = tqdm(list(range(n_tasks)), **self._tqdm_config)
+
         try:
+            """
+            This is the main part of code that does the job.
+            It can be decomposed into two parts:
+                1. An initial launching process, where the initial number of jobs are launched.
+                2. The while loop, which acts as a main event loop that wait for any job to finish. Upon finish,
+                it will launch a new job.
+            """
+            # TODO: Find the bug in GPU scheduling. I think the bug is located in the while loop part.
             self._log_meta_msg("initializing processes")
             init_task_indices = list(range(n_jobs))
-            init_processes = [
-                self._get_process(i, start=False) for i in init_task_indices
-            ]
+            init_processes = [self._get_process(i, start=False) for i in init_task_indices]
             if self.terminated:
                 self._user_terminate()
             init_failed_slots, init_failed_task_indices = [], []
-            for i, (task_idx, process) in enumerate(
-                zip(init_task_indices, init_processes)
-            ):
+
+            # Initialization check, unimportant.
+            for i, (task_idx, process) in enumerate(zip(init_task_indices, init_processes)):
                 if process is None:
                     init_failed_slots.append(i)
                     init_failed_task_indices.append(task_idx)
@@ -189,16 +204,18 @@ class Parallel(PureLoggingMixin):
                         "initialization failed, it may due to lack of resources",
                         msg_level=logging.WARNING,
                     )
+
             if init_failed_slots:
                 for slot in init_failed_slots:
                     init_task_indices[slot] = None
                     init_processes[slot] = [None] * 4
-                self._all_task_indices = (
-                    init_failed_task_indices + self._all_task_indices
-                )
+                self._all_task_indices = (init_failed_task_indices + self._all_task_indices)
+
             self._working_task_indices = init_task_indices
             self._working_processes, task_info = map(list, zip(*init_processes))
             self._log_meta_msg("starting all initial processes")
+
+            # What the heck is this? Why not use a for-loop?
             tuple(
                 map(
                     lambda p_: None if p_ is None else p_.start(),
@@ -258,10 +275,10 @@ class Parallel(PureLoggingMixin):
             results: List[Any] = []
             kwargs = {} if not self._use_cuda else {"cuda": cuda}
             for args in tqdm(
-                zip(*args_list_),
-                total=len(args_list_[0]),
-                position=i + 1,
-                leave=False,
+                    zip(*args_list_),
+                    total=len(args_list_[0]),
+                    position=i + 1,
+                    leave=False,
             ):
                 results.append(f(*args, **kwargs))
             return results
@@ -309,7 +326,7 @@ class Parallel(PureLoggingMixin):
                 )
                 finished_slots = []
                 for i, (task_idx, process) in enumerate(
-                    zip(self._working_task_indices, self._working_processes)
+                        zip(self._working_task_indices, self._working_processes)
                 ):
                     if process is None:
                         self._log_meta_msg(f"pending on slot {i}")
@@ -491,9 +508,9 @@ class Parallel(PureLoggingMixin):
         return _inner
 
     def _get_process(
-        self,
-        task_idx: int,
-        start: bool = True,
+            self,
+            task_idx: int,
+            start: bool = True,
     ) -> Optional[Union[Tuple[Process, Dict[str, Any]], Process]]:
         rs = self._resource_manager.get_process(
             task_idx,
@@ -508,9 +525,7 @@ class Parallel(PureLoggingMixin):
         else:
             args = (task_idx, rs["GPU"]["tgt_resource_id"])
         target = self._f_wrapper(*args)
-        process = Process(
-            target=target, args=tuple(args[task_idx] for args in self._args_list)
-        )
+        process = Process(target=target, args=tuple(args[task_idx] for args in self._args_list))
         self._log_with_meta(task_name, "process created")
         if start:
             process.start()
@@ -520,10 +535,10 @@ class Parallel(PureLoggingMixin):
         return process, rs
 
     def _record_process(
-        self,
-        task_idx: int,
-        process: Optional[Process],
-        rs: Dict[str, Any],
+            self,
+            task_idx: int,
+            process: Optional[Process],
+            rs: Dict[str, Any],
     ) -> None:
         if process is None:
             return
